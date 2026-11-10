@@ -30,12 +30,25 @@ if ($script:DwcGitDir -and -not (Test-Path "$HOME\.git")) {
             'git' {
                 git --git-dir="$gitDir" --work-tree="$HOME" $gitArgs
             }
+            'theme' {
+                $themeName = if ($args.Count -gt 1) { $args[1] } else { $null }
+                $themesDir = Join-Path $HOME ".config\yasb\themes"
+                if (-not $themeName) {
+                    $available = (Get-ChildItem $themesDir -Filter *.css).BaseName -join ", "
+                    Write-Host "Available themes: $available" -ForegroundColor Cyan
+                    Write-Host "Usage: dwc theme <name>"
+                    return
+                }
+                & "$HOME\.config\yasb\set-theme.ps1" $themeName
+                Write-Host "YASB theme set to '$themeName'." -ForegroundColor Green
+            }
             { $_ -in 'help', '--help', '-h' } {
                 Write-Host "dwc-shell (Dorville Windows Custom Shell)" -ForegroundColor Cyan
                 Write-Host "Usage:"
                 Write-Host "  dwc              Open the interactive management panel"
                 Write-Host "  dwc update       Pull latest changes, run setup, and reload Komorebi"
                 Write-Host "  dwc code         Open VS Code scoped to dwc-shell"
+                Write-Host "  dwc theme <name> Switch YASB theme (glass, amoled, opaque)"
                 Write-Host "  dwc git <cmd>    Run git commands on dwc-shell (status, add, commit, push, diff, log)"
                 Write-Host "  dwc help         Show this help message"
             }

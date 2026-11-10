@@ -589,9 +589,13 @@
     background-color: var(--hover);
 }
 
-/* Active Windows Title */
-.active-window-widget .icon {
+/* Active Window — icon only, no title text */
+.active-window-widget {
+    padding-left: 4px;
     padding-right: 4px;
+}
+.active-window-widget .icon {
+    padding-right: 0;
     padding-bottom: 0;
     color: var(--text);
 }
@@ -619,26 +623,43 @@
 /*Style for buttons.*/
 .komorebi-workspaces .ws-btn {
     border: none;
+    margin: 0px 3px;
+    padding: 0px;
+    min-width: 8px;
+    max-width: 8px;
+    min-height: 8px;
+    max-height: 8px;
+    border-radius: 4px;
+    background-color: var(--mutedBG);
+    transition: min-width 0.25s ease-out, max-width 0.25s ease-out, background-color 0.25s ease-out;
 }
 
 /*Style for buttons which contain window and are not empty.*/
 .komorebi-workspaces .ws-btn.populated {
-    padding-left: 8;
-    padding-right: 8;
-    background-color: transparent;
-    border-radius: var(--border-radius2);
-    color: var(--text);
+    background-color: var(--subtext);
+    min-width: 8px;
+    max-width: 8px;
+    min-height: 8px;
+    max-height: 8px;
+    border-radius: 4px;
 }
 
-/*Style for the active workspace button.*/
+/*Style for the active workspace button (capsule / pill).*/
 .komorebi-workspaces .ws-btn.active {
-    padding-left: 8;
-    padding-right: 8;
-    background-color: var(--accent-soft);
-    border-radius: var(--border-radius2);
-    color: var(--accentText);
-    padding-top: 3px;
-    padding-bottom: 3px;
+    background-color: var(--accent);
+    min-width: 22px;
+    max-width: 22px;
+    min-height: 8px;
+    max-height: 8px;
+    border-radius: 4px;
+}
+
+.komorebi-workspaces .ws-btn:hover {
+    background-color: var(--hover);
+}
+
+.komorebi-workspaces .ws-btn.active:hover {
+    background-color: var(--accent);
 }
 
 

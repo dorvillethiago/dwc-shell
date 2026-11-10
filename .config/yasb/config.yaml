@@ -35,18 +35,13 @@ bars:
       right: 0
     widgets:
       left:
-      - home
-      - theme_picker
-      - wallpapers
-      - komorebi_active_layout
-      - komorebi_workspaces
-      - active_window
-      center:
       - open_meteo
       - clock
       - audio_visualizer
-      - media
+      center:
+      - komorebi_workspaces
       right:
+      # - media
       - systray
       # - lines
       - volume
@@ -203,14 +198,16 @@ widgets:
   active_window:
     type: yasb.active_window.ActiveWindowWidget
     options:
-      label: '{win[title]}'
-      label_alt: '{win[title]}'
+      label: ''
+      label_alt: ''
       label_no_window: ''
       label_icon: true
       label_icon_size: 16
-      max_length: 32
-      max_length_ellipsis: '...'
       monitor_exclusive: false
+      callbacks:
+        on_left: do_nothing
+        on_middle: do_nothing
+        on_right: do_nothing
   win_button:
       type: "yasb.custom.CustomWidget"
       options:
@@ -231,9 +228,9 @@ widgets:
     type: "komorebi.workspaces.WorkspaceWidget"
     options:
       label_offline: "Komorebi Offline"
-      label_workspace_btn: "{name}"
-      label_workspace_active_btn: "{name}"
-      label_workspace_populated_btn: "{name}"
+      label_workspace_btn: ""
+      label_workspace_active_btn: ""
+      label_workspace_populated_btn: ""
       label_default_name: ""
       label_zero_index: false
       hide_empty_workspaces: true
