@@ -1,4 +1,4 @@
-# DWC Shell — Interactive Management Panel
+﻿# DWC Shell — Interactive Management Panel
 # Usage: dwc
 
 $esc = [char]27
@@ -35,8 +35,17 @@ function Invoke-Git {
     git --git-dir="$dir" --work-tree="$HOME" @args
 }
 
+function Clear-InputBuffer {
+    try {
+        while ($Host.UI.RawUI.KeyAvailable) {
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown,IncludeKeyUp')
+        }
+    } catch {}
+}
+
 function Wait-Key {
     Show-Cursor
+    Clear-InputBuffer
     Write-Host ""
     Write-ColorLine '  Press Esc to return...' '90'
     while ($true) {
@@ -119,10 +128,17 @@ function Show-PageHeader([string]$Title) {
 }
 
 function Render-MenuLines([int]$Selected, [array]$Items) {
+    $maxHint = 48
+    try {
+        $winW = [Console]::WindowWidth
+        if ($winW -gt 0) { $maxHint = [Math]::Max(12, $winW - 26) }
+    } catch {}
+
     for ($i = 0; $i -lt $Items.Count; $i++) {
         # Pad to fixed width so shorter text overwrites longer previous text
         $label = $Items[$i].Label.PadRight(18)
         $hint  = $Items[$i].Hint
+        if ($hint.Length -gt $maxHint) { $hint = $hint.Substring(0, $maxHint - 1) + '…' }
         if ($i -eq $Selected) {
             Write-Color '    ► ' '36'
             Write-Color $label '1;36'
@@ -135,8 +151,11 @@ function Render-MenuLines([int]$Selected, [array]$Items) {
         Write-Host "$esc[K"  # clear rest of line
     }
 
-    Write-Host ""
-    Write-ColorLine "  ↑/↓ navigate · Enter select · Esc quit$esc[K" '90'
+    Write-Host "$esc[K"
+    $footer = '  ↑/↓ or j/k navigate · Enter select · Esc quit'
+    if ($maxHint -lt 28) { $footer = '  ↑/↓ · Enter · Esc' }
+    Write-Color $footer '90'
+    Write-Host "$esc[K" -NoNewline
 }
 
 # ── Screens ──────────────────────────────────────────────────────────────────
@@ -174,32 +193,23 @@ function Show-HomeScreen([int]$Selected, [array]$MenuItems) {
     if ($health.GitDir) {
         $repoIcon  = if ($health.Dirty) { '⚠' } else { '✔' }
         $repoColor = if ($health.Dirty) { '33' } else { '32' }
-        $repoState = if ($health.Dirty) { 'Modified files' } else { 'Clean' }
+        $repoState = if ($health.Dirty) { 'Modified' } else { 'Clean' }
+        $syncState = if ($health.Behind -gt 0) { "$($health.Behind) behind origin/main" } else { 'Up to date' }
         Write-Color "    $repoIcon " $repoColor
-        Write-ColorLine "Repo: $repoState" $repoColor
-
-        if ($health.Behind -gt 0) {
-            Write-Color '    ⚠ ' '33'
-            Write-ColorLine "$($health.Behind) commit(s) behind origin/main" '33'
-        } else {
-            Write-Color '    ✔ ' '32'
-            Write-ColorLine "Up to date with origin/main" '32'
-        }
+        Write-Color "Repo: $repoState" $repoColor
+        Write-ColorLine " · $syncState" '90'
     }
 
-    Write-Host ""
     Write-ColorLine '  ──────────────────────────────────────────────────' '90'
     Write-Host ""
-
-    # Return the line where the menu starts so we can redraw just the menu
-    $script:menuTop = [Console]::CursorTop
 
     Render-MenuLines $Selected $MenuItems
 }
 
 function Redraw-Menu([int]$Selected, [array]$MenuItems) {
     Hide-Cursor
-    [Console]::SetCursorPosition(0, $script:menuTop)
+    $up = $MenuItems.Count + 1
+    Write-Host "$esc[${up}A`r" -NoNewline
     Render-MenuLines $Selected $MenuItems
 }
 
@@ -480,6 +490,188 @@ function Show-StatusScreen {
     Wait-Key
 }
 
+function Get-ThemeVars([string]$Css) {
+    $vars = @{}
+    foreach ($m in [regex]::Matches($Css, '--([\w-]+):\s*([^;]+);')) {
+        $vars[$m.Groups[1].Value] = $m.Groups[2].Value.Trim()
+    }
+    $vars
+}
+
+function Get-YasbThemes {
+    $yasbDir   = Join-Path $HOME '.config\yasb'
+    $themesDir = Join-Path $yasbDir 'themes'
+    $activeFile = Join-Path $yasbDir 'theme.css'
+
+    if (-not (Test-Path $themesDir)) { return @() }
+
+    $activeVars = if (Test-Path $activeFile) {
+        Get-ThemeVars ([IO.File]::ReadAllText($activeFile))
+    } else {
+        @{}
+    }
+
+    $ti = (Get-Culture).TextInfo
+    $list = @()
+    foreach ($file in (Get-ChildItem $themesDir -Filter '*.css' | Sort-Object Name)) {
+        $css  = [IO.File]::ReadAllText($file.FullName)
+        $vars = Get-ThemeVars $css
+        $desc = ''
+        if ($css -match '/\*\s*[^:]+:\s*(.+?)\s*\*/') {
+            $desc = $Matches[1].Trim()
+        }
+        $isCurrent = ($vars.Count -gt 0) -and ($activeVars.Count -eq $vars.Count) -and (-not ($vars.Keys | Where-Object { $activeVars[$_] -ne $vars[$_] }))
+        $list += [PSCustomObject]@{
+            Id          = $file.BaseName
+            Name        = $ti.ToTitleCase($file.BaseName)
+            Description = $desc
+            Current     = $isCurrent
+        }
+    }
+    return $list
+}
+
+function Render-ThemeList([int]$Selected, [array]$Themes, [string]$StatusMsg = '', [bool]$StatusOk = $true) {
+    $maxDesc = 44
+    $maxLine = 76
+    try {
+        $winW = [Console]::WindowWidth
+        if ($winW -gt 0) {
+            $maxDesc = [Math]::Max(12, [Math]::Min(48, $winW - 32))
+            $maxLine = [Math]::Max(20, $winW - 5)
+        }
+    } catch {}
+
+    for ($i = 0; $i -lt $Themes.Count; $i++) {
+        $t = $Themes[$i]
+        $nameCol = $t.Name.PadRight(12)
+        if ($i -eq $Selected) {
+            Write-Color '    ► ' '36'
+            Write-Color $nameCol '1;36'
+        } else {
+            Write-Color '      ' '37'
+            Write-Color $nameCol '37'
+        }
+
+        if ($t.Current) {
+            Write-Color '● active   ' '32'
+        } else {
+            Write-Color '           ' '90'
+        }
+
+        if ($t.Description) {
+            $d = $t.Description
+            if ($d.Length -gt $maxDesc) { $d = $d.Substring(0, $maxDesc - 1) + '…' }
+            Write-Color $d '90'
+        }
+        Write-Host "$esc[K"
+    }
+
+    Write-Host "$esc[K"
+    if ($StatusMsg) {
+        $msg = $StatusMsg
+        if ($msg.Length -gt $maxLine) { $msg = $msg.Substring(0, $maxLine - 1) + '…' }
+        if ($StatusOk) {
+            Write-Color "  ✔ $msg" '32'
+        } else {
+            Write-Color "  ✖ $msg" '31'
+        }
+    }
+    Write-Host "$esc[K"
+
+    $footer = '  ↑/↓ or j/k navigate · Enter/1-9 apply · Esc return'
+    if ($footer.Length -gt $maxLine) { $footer = '  ↑/↓ · Enter apply · Esc' }
+    Write-Color $footer '90'
+    Write-Host "$esc[K" -NoNewline
+}
+
+function Redraw-ThemeList([int]$Selected, [array]$Themes, [string]$StatusMsg = '', [bool]$StatusOk = $true) {
+    Hide-Cursor
+    $up = $Themes.Count + 2
+    Write-Host "$esc[${up}A`r" -NoNewline
+    Render-ThemeList $Selected $Themes $StatusMsg $StatusOk
+}
+
+function Set-YasbThemeChoice([string]$SetScript, [object]$Theme) {
+    try {
+        & $SetScript $Theme.Id
+        return [PSCustomObject]@{
+            Themes = @(Get-YasbThemes)
+            Status = "Applied '$($Theme.Name)' (YASB reloads automatically)"
+            Ok     = $true
+        }
+    } catch {
+        return [PSCustomObject]@{
+            Themes = @(Get-YasbThemes)
+            Status = "Failed: $($_.Exception.Message)"
+            Ok     = $false
+        }
+    }
+}
+
+function Show-ThemeScreen {
+    $yasbDir   = Join-Path $HOME '.config\yasb'
+    $setScript = Join-Path $yasbDir 'set-theme.ps1'
+
+    Show-PageHeader 'YASB Themes'
+    Hide-Cursor
+    Clear-InputBuffer
+
+    $themes = @(Get-YasbThemes)
+    if ($themes.Count -eq 0) {
+        Write-ColorLine '  No theme files found in .config\yasb\themes.' '33'
+        Wait-Key
+        return
+    }
+
+    if (-not (Test-Path $setScript)) {
+        Write-ColorLine '  Missing .config\yasb\set-theme.ps1.' '31'
+        Wait-Key
+        return
+    }
+
+    $idx = 0
+    for ($i = 0; $i -lt $themes.Count; $i++) {
+        if ($themes[$i].Current) { $idx = $i; break }
+    }
+
+    $status   = ''
+    $statusOk = $true
+    Render-ThemeList $idx $themes $status $statusOk
+
+    while ($true) {
+        $k  = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        $ch = $k.Character
+        $vk = $k.VirtualKeyCode
+
+        if ($vk -eq 38 -or $ch -in 'k', 'K') {
+            $idx = if ($idx -gt 0) { $idx - 1 } else { $themes.Count - 1 }
+            Redraw-ThemeList $idx $themes $status $statusOk
+        } elseif ($vk -eq 40 -or $ch -in 'j', 'J') {
+            $idx = if ($idx -lt ($themes.Count - 1)) { $idx + 1 } else { 0 }
+            Redraw-ThemeList $idx $themes $status $statusOk
+        } elseif ($vk -in 13, 32) {
+            $res      = Set-YasbThemeChoice $setScript $themes[$idx]
+            $themes   = $res.Themes
+            $status   = $res.Status
+            $statusOk = $res.Ok
+            Redraw-ThemeList $idx $themes $status $statusOk
+        } elseif ([char]::IsDigit($ch) -and $ch -ne '0') {
+            $n = [int][string]$ch - 1
+            if ($n -lt $themes.Count) {
+                $idx      = $n
+                $res      = Set-YasbThemeChoice $setScript $themes[$idx]
+                $themes   = $res.Themes
+                $status   = $res.Status
+                $statusOk = $res.Ok
+                Redraw-ThemeList $idx $themes $status $statusOk
+            }
+        } elseif ($vk -eq 27 -or $ch -in 'q', 'Q') {
+            return
+        }
+    }
+}
+
 function Show-CodeScreen {
     Show-PageHeader 'Open in VS Code'
 
@@ -503,48 +695,60 @@ $menuItems = @(
     @{ Label = 'Update';          Hint = 'Pull latest, run setup, reload Komorebi';  Action = 'Update' }
     @{ Label = 'Health Report';   Hint = 'Check daemons, symlinks, and startup';     Action = 'Health' }
     @{ Label = 'Resource Usage';  Hint = 'Memory and CPU consumption breakdown';     Action = 'Resources' }
+    @{ Label = 'YASB Themes';     Hint = 'Switch bar theme (Glass, Amoled, Opaque)'; Action = 'Themes' }
     @{ Label = 'Changelog';       Hint = 'Show recent commits';                      Action = 'Changelog' }
     @{ Label = 'Status';          Hint = 'Show modified files in the repository';    Action = 'Status' }
     @{ Label = 'Open in VS Code'; Hint = 'Launch VS Code scoped to dwc-shell';       Action = 'Code' }
     @{ Label = 'Quit';            Hint = 'Exit the panel';                           Action = 'Quit' }
 )
 
+$invokeAction = {
+    param([string]$Action)
+    switch ($Action) {
+        'Update'    { Show-UpdateScreen;    $script:needsRedraw = $true }
+        'Health'    { Show-HealthScreen;    $script:needsRedraw = $true }
+        'Resources' { Show-ResourceScreen;  $script:needsRedraw = $true }
+        'Themes'    { Show-ThemeScreen;     $script:needsRedraw = $true }
+        'Changelog' { Show-ChangelogScreen; $script:needsRedraw = $true }
+        'Status'    { Show-StatusScreen;    $script:needsRedraw = $true }
+        'Code'      { Show-CodeScreen;      $script:needsRedraw = $true }
+        'Quit'      { $script:running = $false }
+    }
+}
+
 $selected    = 0
 $running     = $true
 $needsRedraw = $true
 
 try {
+    Clear-InputBuffer
     while ($running) {
         if ($needsRedraw) {
             Show-HomeScreen $selected $menuItems
+            Clear-InputBuffer
             $needsRedraw = $false
         }
 
         $key = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        $ch  = $key.Character
+        $vk  = $key.VirtualKeyCode
 
-        switch ($key.VirtualKeyCode) {
-            38 { # Up arrow
-                $selected = if ($selected -gt 0) { $selected - 1 } else { $menuItems.Count - 1 }
-                Redraw-Menu $selected $menuItems
+        if ($vk -eq 38 -or $ch -in 'k', 'K') {
+            $selected = if ($selected -gt 0) { $selected - 1 } else { $menuItems.Count - 1 }
+            Redraw-Menu $selected $menuItems
+        } elseif ($vk -eq 40 -or $ch -in 'j', 'J') {
+            $selected = if ($selected -lt ($menuItems.Count - 1)) { $selected + 1 } else { 0 }
+            Redraw-Menu $selected $menuItems
+        } elseif ($vk -in 13, 32) {
+            & $invokeAction $menuItems[$selected].Action
+        } elseif ([char]::IsDigit($ch) -and $ch -ne '0') {
+            $n = [int][string]$ch - 1
+            if ($n -lt $menuItems.Count) {
+                $selected = $n
+                & $invokeAction $menuItems[$selected].Action
             }
-            40 { # Down arrow
-                $selected = if ($selected -lt ($menuItems.Count - 1)) { $selected + 1 } else { 0 }
-                Redraw-Menu $selected $menuItems
-            }
-            13 { # Enter
-                switch ($menuItems[$selected].Action) {
-                    'Update'    { Show-UpdateScreen;    $needsRedraw = $true }
-                    'Health'    { Show-HealthScreen;    $needsRedraw = $true }
-                    'Resources' { Show-ResourceScreen;  $needsRedraw = $true }
-                    'Changelog' { Show-ChangelogScreen; $needsRedraw = $true }
-                    'Status'    { Show-StatusScreen;    $needsRedraw = $true }
-                    'Code'      { Show-CodeScreen;      $needsRedraw = $true }
-                    'Quit'      { $running = $false }
-                }
-            }
-            27 { # Escape
-                $running = $false
-            }
+        } elseif ($vk -eq 27 -or $ch -in 'q', 'Q') {
+            $running = $false
         }
     }
 } finally {
