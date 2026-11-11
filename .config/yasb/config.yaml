@@ -332,8 +332,8 @@ widgets:
   media:
     type: "yasb.media.MediaWidget"
     options:
-      label: "{title}"
-      label_alt: "{title}{s}{artist}"
+      label: "{title}{s}{artist}"
+      label_alt: "{title}"
       separator: " · "
       hide_empty: true
       callbacks:
@@ -341,8 +341,8 @@ widgets:
         on_middle: "toggle_play_pause"
         on_right: "toggle_label"
       max_field_size:
-        label: 24
-        label_alt: 34
+        label: 26
+        label_alt: 24
         truncate_whole_label: true
       show_thumbnail: false
       controls_only: false
@@ -378,9 +378,9 @@ widgets:
       scrolling_label:
         enabled: true
         update_interval_ms: 75
-        style: "bounce-ease"  # can be "left", "right", "bounce", "bounce-ease"
-        separator: " · "
-        label_padding: 2
+        style: "left"  # can be "left", "right", "bounce", "bounce-ease"
+        separator: "   ·   "
+        label_padding: 0
         always_scroll: false
       # Easing curve params: https://www.desmos.com/calculator/j7eamemxzi
         ease_slope: 20
