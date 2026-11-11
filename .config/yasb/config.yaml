@@ -38,10 +38,10 @@ bars:
       - open_meteo
       - clock
       - audio_visualizer
+      - media
       center:
       - komorebi_workspaces
       right:
-      # - media
       - systray
       # - lines
       - volume
@@ -332,17 +332,18 @@ widgets:
   media:
     type: "yasb.media.MediaWidget"
     options:
-      label: "{title}{s}{artist}"
+      label: "{title}"
       label_alt: "{title}{s}{artist}"
-      separator: " - "
+      separator: " · "
       hide_empty: true
       callbacks:
         on_left: "toggle_media_menu"
-        on_middle: "do_nothing"
-        on_right: "do_nothing"
+        on_middle: "toggle_play_pause"
+        on_right: "toggle_label"
       max_field_size:
-        label: 45
-        label_alt: 30
+        label: 24
+        label_alt: 34
+        truncate_whole_label: true
       show_thumbnail: false
       controls_only: false
       controls_left: true
@@ -360,10 +361,10 @@ widgets:
         round_corners: true
         round_corners_type: "normal"
         border_color: "system"
-        alignment: "center"
+        alignment: "left"
         direction: "down"
         offset_top: 6
-        offset_left: -95
+        offset_left: 0
         thumbnail_corner_radius: 8
         thumbnail_size: 120
         max_title_size: 60
@@ -375,18 +376,18 @@ widgets:
         prev_track: "\udb81\udcae"
         next_track: "\udb81\udcad"
       scrolling_label:
-        enabled: false
-        update_interval_ms: 33
-        style: "left"  # can be "left", "right", "bounce", "bounce-ease"
-        separator: " | "
-        label_padding: 0
+        enabled: true
+        update_interval_ms: 75
+        style: "bounce-ease"  # can be "left", "right", "bounce", "bounce-ease"
+        separator: " · "
+        label_padding: 2
         always_scroll: false
       # Easing curve params: https://www.desmos.com/calculator/j7eamemxzi
         ease_slope: 20
         ease_pos: 0.8
-        ease_min: 0.5
+        ease_min: 0.4
       progress_bar:
-        enabled: false       # Whether to enable the progress bar on the widget.
+        enabled: true        # Whether to enable the progress bar on the widget.
         alignment: "bottom"  # The alignment of the progress bar inside the widget container. Can be "top", "bottom", or "center".
   language:
     type: "yasb.language.LanguageWidget"
@@ -524,23 +525,23 @@ widgets:
     type: "yasb.audio_visualizer.AudioVisualizerWidget"
     options:
       style: bars
-      height: 12
-      smoothness: 80
-      sensitivity: 50
+      height: 16
+      smoothness: 65
+      sensitivity: 55
       auto_gain: true
       framerate: 60
-      freq_min: 500
-      freq_max: 12000
+      freq_min: 60
+      freq_max: 8000
       hide_idle: true
       hide_idle_after: 2000
       channels: stereo
       mono_option: average
       reverse: false
-      mirror: true
+      mirror: false
       bars:
-        count: 10
+        count: 14
         width: 2
-        gap: 4
+        gap: 2
       waves:
         width: 80
       dots:

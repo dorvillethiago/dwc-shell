@@ -773,6 +773,34 @@
     color: var(--text);
 }
 
+/* Media-Widget */
+.media-widget {
+    padding-left: 4px;
+    padding-right: 6px;
+    margin-left: 0px;
+}
+.media-widget .label {
+    color: var(--subtext);
+    font-family: var(--system-font);
+    font-size: var(--fontSize);
+    font-weight: var(--fontWeight);
+    padding: 0px 2px 2px 2px;
+}
+.media-widget .label:hover {
+    color: var(--text);
+}
+.media-widget .progress-bar {
+    max-height: 2px;
+    min-height: 2px;
+    border-radius: 1px;
+    background-color: var(--mutedBG);
+    margin: 0px 2px;
+}
+.media-widget .progress-bar::chunk {
+    background-color: var(--accent-soft);
+    border-radius: 1px;
+}
+
 /* Media-Widget-Popup */
 
 .media-menu {
@@ -1501,9 +1529,9 @@ which is 16 pixels same as the other sections. */
 }
 
 .audio-visualizer-widget {
-    padding-bottom: 1px;
+    padding: 0px 6px;
 }
 
 .audio-visualizer-widget .audio-visualizer-canvas {
-    qproperty-fillbrush: var(--accent-soft);
+    qproperty-fillbrush: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 var(--yasb-accent-light3), stop: 0.5 var(--yasb-accent), stop: 1 var(--yasb-accent-light3));
 }
