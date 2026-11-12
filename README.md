@@ -2,7 +2,7 @@
 
 <p><b>Dorville Windows Custom Shell</b> — A keyboard-centric tiling desktop and environment provisioner for Windows.</p>
 
-<img width="1568" height="662" alt="image" src="https://github.com/user-attachments/assets/351ff0f5-78ea-4141-a7df-010eb23432bd" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/521ce9d9-1e27-40a2-99de-f31efb071688" />
 
 ## Setup
 
